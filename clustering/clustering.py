@@ -45,7 +45,13 @@ def get_error_message(json_path) -> str:
     '''
     with open(json_path, 'r') as fd:
         test_result = json.load(fd)
-    return test_result['errorMessage']  
+        try:
+            if type(test_result) == list:
+                return test_result[0]['errorMessage']
+            elif type(test_result) == dict:
+                return test_result['errorMessage']
+        except:
+            return "Invalid error message"
 
 def meanshift_predict(embeddings_list) -> list:
     '''
@@ -69,13 +75,15 @@ def main() -> None:
         return
     result_json_path_pattern = os.path.join(parsed_args.sample_root, parsed_args.path_pattern)
  
-    logger.info(f'Clustering result jsons from {parsed_args.sample_root}')
+    logger.info(f'Clustering result jsons from {result_json_path_pattern}')
     result_json_list = glob.glob(result_json_path_pattern)
     logger.info(f'Found {len(result_json_list)} json files')
     embeddings_list = list()
     for json_path in result_json_list:
+        logger.info(f'Processing {json_path}')
         err_msg = get_error_message(json_path)
         embeddings_list.append(model.encode(err_msg))
+        logger.info(f'Embeddings count: {len(embeddings_list)}')
          
     result = meanshift_predict(embeddings_list) # clustering
     if len(result) == len(result_json_list):
