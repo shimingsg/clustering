@@ -9,6 +9,7 @@ from itertools import groupby
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import MeanShift
 from utls import eclapsed_timer, generate_repeated_string, logger
+from tqdm import tqdm
 
 args = argparse.ArgumentParser()
 args.add_argument(
@@ -34,6 +35,13 @@ args.add_argument(
     type=str,
     default="all-MiniLM-L6-v2",
 )
+
+args.add_argument(
+    "--verbose",
+    "-v",
+    help="The verbosity level.",
+    action="store_true",)
+
 parsed_args = args.parse_args()
 
 def get_error_message(json_path) -> str:
@@ -66,9 +74,9 @@ def meanshift_predict(embeddings_list) -> list:
 @eclapsed_timer
 def main() -> None:
     logger.info('Start clustering')
-    logger.info(f'Loads SentenceTransformer model: [{parsed_args.model_name}]')
+    logger.info(f'Loading SentenceTransformer model: [{parsed_args.model_name}]')
     model = SentenceTransformer(parsed_args.model_name)
-    logger.info(f'Loads SentenceTransformer model successfully')
+    logger.info(f'Loading SentenceTransformer model successfully')
 
     if os.path.exists(parsed_args.sample_root) is False:
         logger.error(f'Path {parsed_args.sample_root} does not exist')
@@ -79,12 +87,24 @@ def main() -> None:
     result_json_list = glob.glob(result_json_path_pattern)
     logger.info(f'Found {len(result_json_list)} json files')
     embeddings_list = list()
-    for json_path in result_json_list:
-        logger.info(f'Processing {json_path}')
+    
+    for json_path in tqdm(result_json_list, desc='Model encoding'):
+        if os.path.exists(json_path) is False:
+            logger.error(f'Path {json_path} does not exist')
+            continue
+        if os.path.getsize(json_path) == 0:
+            logger.error(f'File {json_path} is empty')
+            continue
         err_msg = get_error_message(json_path)
         embeddings_list.append(model.encode(err_msg))
-        logger.info(f'Embeddings count: {len(embeddings_list)}')
-         
+        
+    
+    # for json_path in result_json_list:
+    #     logger.info(f'Processing {json_path}')
+    #     err_msg = get_error_message(json_path)
+    #     embeddings_list.append(model.encode(err_msg))
+    logger.info(f'Embeddings count: {len(embeddings_list)}')
+
     result = meanshift_predict(embeddings_list) # clustering
     if len(result) == len(result_json_list):
         logger.info('Clustering successfully')
@@ -94,10 +114,11 @@ def main() -> None:
         for key, path in groupby(merged_result, key=lambda x: x[0]):
             paths = list(path)
             logger.info(f'Cluster {key}, count: {len(paths)}')
-            for p in iter(paths):
-                logger.info(p[1])
-                logger.info(get_error_message(p[1]))
-                logger.info(repeated_string)
+            if parsed_args.verbose:
+                for p in iter(paths):
+                    logger.info(p[1])
+                    logger.info(get_error_message(p[1]))
+                    logger.info(repeated_string)
     else:
         logger.error('Clustering failed')
 if __name__ == "__main__":

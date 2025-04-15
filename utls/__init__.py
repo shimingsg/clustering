@@ -24,17 +24,6 @@ with open('logging_config.yaml', 'r') as f:
 logger = logging.getLogger("my_module")
 logger.addFilter(SensitiveInfoFilter())
 
-color_mapping = {
-    "red": Fore.RED,
-    "green": Fore.GREEN,
-    "yellow": Fore.YELLOW,
-    "blue": Fore.BLUE,
-    "magenta": Fore.MAGENTA,
-    "cyan": Fore.CYAN,
-    "white": Fore.WHITE,
-    "black": Fore.BLACK,
-}
-
 def generate_repeated_string(string, times):
     return ''.join([string for _ in range(times)])
 
