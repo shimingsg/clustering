@@ -18,7 +18,7 @@ handlers:
     formatter: preciseFormatter
     encoding: utf-8
 loggers:
-  my_module:
+  clustering:
     level: DEBUG
     handlers: [console, file]
     propagate: no
