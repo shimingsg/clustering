@@ -8,20 +8,34 @@ import os
 from datetime import datetime
 import json
 
+
 class SensitiveInfoFilter(logging.Filter):
     def filter(self, record):
         if "password" in record.msg:
             record.msg = record.msg.replace("password", "********")
         return True
-        
-with open('logging_config.yaml', 'r') as f:
-    os.makedirs("logs", exist_ok=True)
-    config = yaml.safe_load(f)
-    config["handlers"]["file"]["filename"] = f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log'
-    logging.config.dictConfig(config)
 
-logger = logging.getLogger("clustering")
-logger.addFilter(SensitiveInfoFilter())
+def __configure_logging():
+    os.makedirs("logs", exist_ok=True)
+    # logging.FileHandler(f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log')
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log'),
+            logging.StreamHandler()
+        ],
+    )
+
+__configure_logging()
+# with open('logging_config.yaml', 'r') as f:
+#     os.makedirs("logs", exist_ok=True)
+#     config = yaml.safe_load(f)
+#     config["handlers"]["file"]["filename"] = f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log'
+#     logging.config.dictConfig(config)
+
+# logger = logging.getLogger("clustering")
+# logger.addFilter(SensitiveInfoFilter())
 
 def generate_repeated_string(string, times):
     return ''.join([string for _ in range(times)])
@@ -31,7 +45,7 @@ def eclapsed_timer(func):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
-        logger.info(f"***{func.__name__}*** eclapsed: {end_time - start_time:.4f}seconds")
+        logging.info(f"===> [{func.__name__}] eclapsed: {end_time - start_time:.4f}seconds")
         return result
     return wrapper
 
@@ -78,9 +92,9 @@ def __get_value_from_json(json_path, key_path: list) -> str:
                     test_result = test_result[0]
                 test_result = test_result.get(key, None)
                 if test_result is None:
-                    return None
+                    return ''
             return test_result
     except:
-        return None
+        return ''
     
     

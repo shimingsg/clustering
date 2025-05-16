@@ -5,6 +5,7 @@ from datetime import datetime
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN
 from itertools import groupby
+from utls import eclapsed_timer
 
 args = argparse.ArgumentParser()
 args.add_argument(
@@ -48,6 +49,7 @@ def preprocess_log(log):
     log = log.lower()
     return log
 
+@eclapsed_timer
 def cluster_logs(logs):
     """
     Cluster logs using TF-IDF and DBSCAN.
@@ -72,20 +74,8 @@ def cluster_logs(logs):
     
     return clusters
 
-def configure_logging():
-    os.makedirs("logs", exist_ok=True)
-    logging.FileHandler(f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log')
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log'),
-            logging.StreamHandler()
-        ]
-    )
-
+@eclapsed_timer
 def main():
-    configure_logging()
     logs = list()
     raw_logs = rf"D:\repos\clustering\rawdata\raw_data_1745476397.176719.json"
     raw_logs = rf"D:\repos\clustering\rawdata\raw_data_1747364466.534833.json"
