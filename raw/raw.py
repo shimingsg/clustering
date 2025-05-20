@@ -3,7 +3,10 @@ import glob
 import json
 import os, sys
 from datetime import datetime
-if __debug__:
+
+    
+# Add parent directory to path for module resolution
+if __name__ != "__main__":
     ''' 
     fix ModuleNotFoundError: No module named 'utls'
     add the parent directory to the python path
@@ -13,25 +16,34 @@ if __debug__:
     '''
     pythonpath = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     sys.path.insert(0, pythonpath)
+    
 from utls import get_error_message, get_test_case_name, get_test_run_name
 
-args = argparse.ArgumentParser()
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Parse JSON test result files and extract specific fields.")
+    parser.add_argument(
+        "--path_pattern",
+        "-pp",
+        help="The path pattern of the result, e.g. '.\\test\\assets\\*'.",
+        type=str,
+        default="*.json",
+    )
+    return parser.parse_args()
 
-args.add_argument(
-    "--path_pattern",
-    "-pp",
-    help="The path pattern of the result, e.g. '.\\test\\assets\\*'.",
-    type=str,
-    default="*.json",
-)
+def generate_raw_data(path_pattern: str) -> None:
+    # json_path = parsed_args.path_pattern
+    result_json_list = glob.glob(path_pattern, recursive=True)
+    raw_json_list = [
+        {
+        "test_case_name": get_test_case_name(json_path),
+        "test_run_name": get_test_run_name(json_path),
+        "error_message": get_error_message(json_path),
+        }
+        for json_path in result_json_list
+    ]
 
-parsed_args = args.parse_args()
-
-def generate_raw_data() -> None:
-    json_path = parsed_args.path_pattern
-    result_json_list = glob.glob(parsed_args.path_pattern, recursive=True)
     # result_json_list = [os.path.abspath(x) for x in result_json_list]
-    raw_json_list = []
+    # raw_json_list = []
     for json_path in result_json_list:
         raw_json_list.append(
             {
@@ -40,18 +52,19 @@ def generate_raw_data() -> None:
                 "error_message": get_error_message(json_path),
             }
         )
-        
-    if len(raw_json_list) == 0:
+    
+    if not raw_json_list:
         print("No test result found.")
-    else:
-        # write the raw json to a file
-        if os.path.exists("rawdata") == False:
-            os.mkdir("rawdata")
-        raw_file_name = f'rawdata/raw_data_{datetime.now().timestamp()}.json'
-        with open(raw_file_name, "w") as fd:
-            json.dump(raw_json_list, fd, indent=4)
-        print(f"Write {len(raw_json_list)} test results to raw.json")
+        return
+
+    os.makedirs("rawdata", exist_ok=True)
+    raw_file_name = f'rawdata/raw_data_{datetime.now().timestamp()}.json'
+    
+    with open(raw_file_name, "w") as fd:
+        json.dump(raw_json_list, fd, indent=4)
+    print(f"Write {len(raw_json_list)} test results to {raw_file_name}")
  
 
 if __name__ == "__main__":
-    generate_raw_data()
+    args = parse_arguments()
+    generate_raw_data(args.path_pattern)
