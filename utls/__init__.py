@@ -49,6 +49,15 @@ def eclapsed_timer(func):
         return result
     return wrapper
 
+def get_stacktrace(json_path) -> str:
+    '''
+    Get the error message from the json file.
+    
+    :param json_path: The path of the json file.
+    :return: The error message.
+    '''
+    return __get_value_from_json(json_path, ['stackTrace'])
+
 def get_error_message(json_path) -> str:
     '''
     Get the error message from the json file.

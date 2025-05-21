@@ -22,3 +22,7 @@ python -m clustering -sr D:\mytest -pp *\*\*.json
 python .\log_clustering.py -rl <raw data path> -esp <float, default value 0.5> -ms <min-samples, defalut value 2>
 
 ``` 
+
+## create raw data from original
+```python -m raw -pp test\*```
+
