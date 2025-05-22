@@ -1,2 +1,4 @@
 sentence_transformers == 3.4.1
-python == 3.10.12
+hdbscan >= 0.8.40
+pandas >= 2.2.3
+scikit-learn >= 1.6.1
