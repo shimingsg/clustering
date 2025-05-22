@@ -38,6 +38,7 @@ def generate_raw_data(path_pattern: str) -> None:
             "test_run_name": get_test_run_name(json_path),
             "error_message": get_error_message(json_path),
             "stackTrace":get_stacktrace(json_path),
+            "run_url": "",
         }
         for json_path in result_json_list
     ]
