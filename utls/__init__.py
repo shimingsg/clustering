@@ -8,7 +8,6 @@ import os
 from datetime import datetime
 import json
 
-
 class SensitiveInfoFilter(logging.Filter):
     def filter(self, record):
         if "password" in record.msg:
@@ -17,25 +16,20 @@ class SensitiveInfoFilter(logging.Filter):
 
 def __configure_logging():
     os.makedirs("logs", exist_ok=True)
-    # logging.FileHandler(f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log')
+    file_handler = logging.FileHandler(f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log')
+    file_handler.addFilter(SensitiveInfoFilter())
+    stream_handler = logging.StreamHandler()
+    stream_handler.addFilter(SensitiveInfoFilter())
     logging.basicConfig(
         level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler(f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log'),
-            logging.StreamHandler()
+            file_handler,
+            stream_handler
         ],
     )
 
 __configure_logging()
-# with open('logging_config.yaml', 'r') as f:
-#     os.makedirs("logs", exist_ok=True)
-#     config = yaml.safe_load(f)
-#     config["handlers"]["file"]["filename"] = f'logs/output_{datetime.now().strftime("%Y-%m-%d_%H_%M_%S_%f")}.log'
-#     logging.config.dictConfig(config)
-
-# logger = logging.getLogger("clustering")
-# logger.addFilter(SensitiveInfoFilter())
 
 def generate_repeated_string(string, times):
     return ''.join([string for _ in range(times)])

@@ -2,13 +2,7 @@
 import argparse
 import json
 import glob
-import os
-
-from itertools import groupby
-from sentence_transformers import SentenceTransformer
-from sklearn.cluster import MeanShift
-from utls import eclapsed_timer, generate_repeated_string, logger
-from tqdm import tqdm
+import re
 
 args = argparse.ArgumentParser()
 args.add_argument(
@@ -28,97 +22,82 @@ args.add_argument(
 )
 
 args.add_argument(
-    "--model_name",
-    "-mn",
-    help="The name of the SentenceTransformer model.",
-    type=str,
-    default="all-MiniLM-L6-v2",
-)
-
-args.add_argument(
     "--verbose",
     "-v",
     help="The verbosity level.",
     action="store_true",)
 
 parsed_args = args.parse_args()
-
-def get_error_message(json_path) -> str:
-    '''
-    Get the error message from the json file.
-    
-    :param json_path: The path of the json file.
-    :return: The error message.
-    '''
-    with open(json_path, 'r') as fd:
-        test_result = json.load(fd)
-        try:
-            if type(test_result) == list:
-                return test_result[0]['errorMessage']
-            elif type(test_result) == dict:
-                return test_result['errorMessage']
-        except:
-            return "Invalid error message"
-
-def meanshift_predict(embeddings_list) -> list:
-    '''
-    Clustering the embeddings by MeanShift.
-    
-    :param embeddings_list: The embeddings list.
-    :return: The cluster result.
-    '''
-    clustering_model = MeanShift()
-    return clustering_model.fit_predict(embeddings_list)
-
-@eclapsed_timer
-def main() -> None:
-    logger.info('Start clustering')
-    logger.info(f'Loading SentenceTransformer model: [{parsed_args.model_name}]')
-    model = SentenceTransformer(parsed_args.model_name)
-    logger.info(f'Loading SentenceTransformer model successfully')
-
-    if os.path.exists(parsed_args.sample_root) is False:
-        logger.error(f'Path {parsed_args.sample_root} does not exist')
-        return
-    result_json_path_pattern = os.path.join(parsed_args.sample_root, parsed_args.path_pattern)
  
-    logger.info(f'Clustering result jsons from {result_json_path_pattern}')
-    result_json_list = glob.glob(result_json_path_pattern)
-    logger.info(f'Found {len(result_json_list)} json files')
-    embeddings_list = list()
-    
-    for json_path in tqdm(result_json_list, desc='Model encoding'):
-        if os.path.exists(json_path) is False:
-            logger.error(f'Path {json_path} does not exist')
-            continue
-        if os.path.getsize(json_path) == 0:
-            logger.error(f'File {json_path} is empty')
-            continue
-        err_msg = get_error_message(json_path)
-        embeddings_list.append(model.encode(err_msg))
-        
-    
-    # for json_path in result_json_list:
-    #     logger.info(f'Processing {json_path}')
-    #     err_msg = get_error_message(json_path)
-    #     embeddings_list.append(model.encode(err_msg))
-    logger.info(f'Embeddings count: {len(embeddings_list)}')
-
-    result = meanshift_predict(embeddings_list) # clustering
-    if len(result) == len(result_json_list):
-        logger.info('Clustering successfully')
-        merged_result = list(zip(result, result_json_list)) # merge cluster number and json path
-        merged_result.sort(key=lambda x: x[0]) # sort by cluster number
-        repeated_string = generate_repeated_string('=', 75)
-        for key, path in groupby(merged_result, key=lambda x: x[0]):
-            paths = list(path)
-            logger.info(f'Cluster {key}, count: {len(paths)}')
-            if parsed_args.verbose:
-                for p in iter(paths):
-                    logger.info(p[1])
-                    logger.info(get_error_message(p[1]))
-                    logger.info(repeated_string)
+template_dict = {
+    'pid': r'PID [0-9]+ \[0x[0-9a-fA-F]+\]',
+    'tid': r'Thread: [0-9]+ \[0x[0-9a-fA-F]+\]',
+    'date': r'\b\d{1,2}:\d{2}:\d{2}(?:\.\d+)?(?:\s?[APMapm]{2})?\b',
+    'memory address': r'0[xX][0-9a-fA-F]+(?:`[0-9a-fA-F]+)?',
+    # 'win path': r'\b[a-zA-Z]:\\?(?:[^\n\\/:*?"<>|]+\\)*[^\n\\/:*?"<>|]+\.\w+',
+    # 'unix_path': r'(/[^: \r\n]+)+',
+} 
+ 
+def main() -> None:
+    if parsed_args.sample_root:
+       pathname_pattern = parsed_args.sample_root +"**\\*.json"
+    elif parsed_args.path_pattern:
+       pathname_pattern = parsed_args.path_pattern
     else:
-        logger.error('Clustering failed')
+         raise ValueError("Please provide either --sample_root or --path_pattern argument.")
+    # pathname_pattern = Path( parsed_args.sample_root
+    result_json_path_list = glob.glob(pathname_pattern, recursive=True)
+    result_json_path_list_size = len(result_json_path_list)
+    err_msg_list = []
+    cleaned_err_msg_list = []
+    for idx, json_path in enumerate(result_json_path_list):
+        with open(json_path, 'r') as fd:
+            test_result = json.load(fd)
+        err_msg = test_result['errorMessage']
+        err_msg_list.append(err_msg)
+        for key, pattern in template_dict.items():
+            err_msg = re.sub(pattern, f'<{key}>', err_msg)
+        cleaned_err_msg_list.append(err_msg)
+
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    # from sklearn.decomposition import TruncatedSVD as DemensionReducer
+
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), use_idf=True, smooth_idf=True, sublinear_tf=True)
+    tfidf_matrix = vectorizer.fit_transform(cleaned_err_msg_list)
+
+    # demension_reducer = DemensionReducer(n_components=256)
+    # densed_tfidf_matrix = demension_reducer.fit_transform(tfidf_matrix)
+    print(f'Number of error message: {result_json_path_list_size}')
+
+    import numpy as np
+    from sklearn.mixture import GaussianMixture as GMM
+    from sklearn.metrics.pairwise import cosine_distances
+    from sklearn.cluster import AgglomerativeClustering as Cluster
+
+    cosine_distances_matrix = cosine_distances(tfidf_matrix)
+
+    distance_scores = np.reshape(cosine_distances_matrix[np.triu_indices_from(cosine_distances_matrix, k=1)], (-1, 1))
+
+    gmm = GMM(n_components=2, covariance_type='full', random_state=42)
+    gmm.fit(distance_scores)
+    threshold = np.min(gmm.means_,)
+
+    cluster = Cluster(n_clusters=None, metric='precomputed', linkage='average', distance_threshold=threshold, compute_full_tree=True)
+    label_list = cluster.fit_predict(cosine_distances_matrix)
+
+    label = dict()
+    for idx, label_value in enumerate(label_list):
+        if label_value not in label.keys():
+            label[label_value] = []
+        label[label_value].append(idx)
+
+    for label_value in label.keys():
+        print(f'Label {label_value} has {len(label[label_value])} error messages')
+        output_path = f'output\\label-{label_value}.txt'
+        with open(output_path, 'wb+') as fp:
+            for idx in label[label_value]:
+                fp.write(f'{err_msg_list[idx]}\n\n'.encode('utf-8'))
+                fp.write('=========================\n\n'.encode('utf-8'))
+                
 if __name__ == "__main__":
     main()
