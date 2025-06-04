@@ -3,6 +3,7 @@ import argparse
 import json
 import glob
 import re
+import os
 
 args = argparse.ArgumentParser()
 args.add_argument(
@@ -40,7 +41,7 @@ template_dict = {
  
 def main() -> None:
     if parsed_args.sample_root:
-       pathname_pattern = parsed_args.sample_root +"**\\*.json"
+       pathname_pattern = os.path.join( parsed_args.sample_root,"**\\*.json")
     elif parsed_args.path_pattern:
        pathname_pattern = parsed_args.path_pattern
     else:
@@ -90,10 +91,11 @@ def main() -> None:
         if label_value not in label.keys():
             label[label_value] = []
         label[label_value].append(idx)
-
+    output_folder = 'output'
+    os.makedirs(output_folder, exist_ok=True)
     for label_value in label.keys():
         print(f'Label {label_value} has {len(label[label_value])} error messages')
-        output_path = f'output\\label-{label_value}.txt'
+        output_path = f'{output_folder}\\label-{label_value}.txt'
         with open(output_path, 'wb+') as fp:
             for idx in label[label_value]:
                 fp.write(f'{err_msg_list[idx]}\n\n'.encode('utf-8'))
